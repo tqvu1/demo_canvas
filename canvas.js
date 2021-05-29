@@ -1,6 +1,6 @@
 const ctx = canvas.getContext("2d");
 const Point2 = (x,y) => ({x,y});  // creates a point
-const Line = (p1,p2) => ({p1,p2});
+const Line = (p1,p2,dist) => ({p1,p2,dist});
 const setStyle = (style) => eachOf(Object.keys(style), key => { ctx[key] = style[key] } );
 const eachOf = (array, callback) => {var i = 0; while (i < array.length && callback(array[i],i ++) !== true ); };
 
@@ -29,6 +29,19 @@ function getClosestPoint(from ,minDist) {
         }
     });
     return closestPoint;
+}
+function getOtherPointInLine(closestLine, closestPoint) {
+  if (points.items[closestLine.p1].x === closestPoint.x && points.items[closestLine.p1].y === closestPoint.y) {
+    return points.items[closestLine.p2];
+  } else {
+    return points.items[closestLine.p1];
+  }
+}
+function measure(pointFrom, pointTo) {
+  const a = Math.abs(pointFrom.x - pointTo.x);
+  const b = Math.abs(pointFrom.y - pointTo.y);
+  const c = Math.sqrt( a*a + b*b );
+  return Math.round(c);
 }
 function distanceLineFromPoint(line,point){
     const lx = points.items[line.p1].x;
@@ -109,11 +122,11 @@ var pointDrag; // true is dragging a point else dragging a line
 var dragOffsetX;
 var dragOffsetY;
 var cursor;
-var toolTip;
+var toolTip = '';
 var helpCount = 0;
 const minDist = 20;
 const lineStyle = {
-  lineWidth : 2,
+  lineWidth : 3,
   strokeStyle : "green",
 }
 const pointStyle = {
@@ -125,16 +138,17 @@ const highlightStyle = {
   strokeStyle : "red",
 }
 const font = {
-  font : "18px arial",
+  font : "bold 40px arial",
   fillStyle : "black",
   textAlign : "center",
+
 }
 
 
 // main update function
 function update(timer){
     cursor = "crosshair";
-    toolTip = helpCount < 2 ? "Click drag to create a line" : "";
+    // toolTip = helpCount < 2 ? "Click drag to create a line" : "";
     globalTime = timer;
     ctx.setTransform(1,0,0,1,0,0); // reset transform
     ctx.globalAlpha = 1;           // reset alpha
@@ -151,7 +165,7 @@ function update(timer){
        closestLine = lines.getClosest(mouse,minDist);
     }
     if(closestPoint || closestLine){
-       toolTip = "Click drag to move " + (closestPoint ? "point" : "line");     
+       // toolTip = "Click drag to move " + (closestPoint ? "point" : "line");     
        cursor = "move";
     }
   }
@@ -165,6 +179,7 @@ function update(timer){
       dragOffsetX = points.items[closestLine.p1].x - mouse.x;
       dragOffsetY = points.items[closestLine.p1].y - mouse.y;
       pointDrag = false;
+      toolTip = closestLine.dist;
     
     } else {
       points.add(Point2(mouse.x,mouse.y));
@@ -183,6 +198,12 @@ function update(timer){
       if(pointDrag){
         closestPoint.x = mouse.x + dragOffsetX;
         closestPoint.y = mouse.y + dragOffsetY;
+
+        let closestLine = lines.getClosest(mouse, minDist);
+        let otherPointInLine = getOtherPointInLine(closestLine, closestPoint);
+        let dist = measure(closestPoint, otherPointInLine);
+        closestLine.dist = dist;
+        toolTip = dist;
       }else{
         const dx = mouse.x- mouse.dragStartX;
         const dy = mouse.y -mouse.dragStartY;
@@ -191,7 +212,7 @@ function update(timer){
         points.items[closestLine.p1].x +=  dx;
         points.items[closestLine.p1].y +=  dy;
         points.items[closestLine.p2].x +=  dx;
-        points.items[closestLine.p2].y +=  dy;        
+        points.items[closestLine.p2].y +=  dy;   
       }
   }else{
   
@@ -207,28 +228,22 @@ function update(timer){
   points.draw();
   ctx.stroke();
 
-  
   // draw highlighted point or line
   setStyle(highlightStyle);
   ctx.beginPath();
-  if(closestLine){ drawLine(closestLine) }
-  if(closestPoint){ drawPoint(closestPoint) }
+  if(closestLine){ 
+    drawLine(closestLine) 
+  }
+  if(closestPoint){ 
+    drawPoint(closestPoint) 
+  }
   
   ctx.stroke();
       
-  
-  if(helpCount < 2){
-     setStyle(font);
-     ctx.fillText(toolTip,cw,30);
-  }
-  
+  setStyle(font);
+  ctx.fillText(toolTip,cw,50);
   
   canvas.style.cursor = cursor;
-  if(helpCount < 5){
-      canvas.title = toolTip;
-  }else{
-      canvas.title = "";
-  }
   requestAnimationFrame(update);
 }
 requestAnimationFrame(update);
